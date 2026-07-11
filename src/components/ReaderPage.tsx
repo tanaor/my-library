@@ -131,8 +131,20 @@ export default function ReaderPage({ bookId, onBack }:
     setSel({ x: rect.left + rect.width / 2, y: rect.top, start: startOff, end: endOff, quote: s.toString() });
   }, []);
 
-  // Swipe handling
+  // Turn a page based on where in the reading area the user tapped/clicked.
+  // Left 40% → previous, right 40% → next, middle 20% → nothing (safe zone).
+  const turnByPosition = useCallback((clientX: number) => {
+    const el = areaRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    if (x > rect.width * 0.6) goto(pageIndex + 1);
+    else if (x < rect.width * 0.4) goto(pageIndex - 1);
+  }, [goto, pageIndex]);
+
+  // Touch: swipe turns pages; a swipe suppresses the click that follows.
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
   const onTouchStart = (e: React.TouchEvent) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
   const onTouchEnd = (e: React.TouchEvent) => {
     const t = touch.current;
@@ -140,9 +152,22 @@ export default function ReaderPage({ bookId, onBack }:
     if (t) {
       const dx = e.changedTouches[0].clientX - t.x;
       const dy = e.changedTouches[0].clientY - t.y;
-      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { goto(pageIndex + (dx < 0 ? 1 : -1)); return; }
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+        swiped.current = true;
+        setTimeout(() => { swiped.current = false; }, 400);
+        goto(pageIndex + (dx < 0 ? 1 : -1));
+        return;
+      }
     }
     readSelection();
+  };
+
+  // Click/tap: turn by position unless the user just swiped or is selecting text.
+  const onAreaClick = (e: React.MouseEvent) => {
+    if (swiped.current) return;
+    const s = window.getSelection();
+    if (s && !s.isCollapsed) return;
+    turnByPosition(e.clientX);
   };
 
   const commitHighlight = async (withNote: boolean) => {
@@ -204,7 +229,8 @@ export default function ReaderPage({ bookId, onBack }:
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           onMouseUp={readSelection}
-          className="h-full w-full overflow-hidden"
+          onClick={onAreaClick}
+          className="h-full w-full overflow-hidden select-text"
           style={{ fontSize: `${fontSize}px`, lineHeight: LINE_HEIGHT }}
         >
           {!pages || !page ? <Spinner /> : (
