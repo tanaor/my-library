@@ -17,10 +17,16 @@ export function useProgress(bookId: string) {
   const save = (nextOffset: number) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      void supabase.from("reading_progress").upsert(
-        { book_id: bookId, offset: nextOffset, updated_at: new Date().toISOString() },
-        { onConflict: "book_id" },
-      );
+      // NB: supabase-js builders are lazy — must call .then()/await to actually send.
+      supabase
+        .from("reading_progress")
+        .upsert(
+          { book_id: bookId, offset: nextOffset, updated_at: new Date().toISOString() },
+          { onConflict: "book_id" },
+        )
+        .then(({ error }) => {
+          if (error) console.error("Failed to save reading progress:", error.message);
+        });
     }, 600);
   };
 
