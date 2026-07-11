@@ -4,12 +4,11 @@ import { supabase } from "../lib/supabase";
 import { progressPercent } from "../lib/reader-math";
 import BookCover from "./BookCover";
 
-export default function LibraryPage({ userId, onOpen, onSignOut }:
-  { userId: string; onOpen: (bookId: string) => void; onSignOut: () => void }) {
+export default function LibraryPage({ onOpen }: { onOpen: (bookId: string) => void }) {
   const [percents, setPercents] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    supabase.from("reading_progress").select("book_id, offset").eq("user_id", userId).then(({ data }) => {
+    supabase.from("reading_progress").select("book_id, offset").then(({ data }) => {
       const map: Record<string, number> = {};
       for (const row of data ?? []) {
         const book = books.find((b) => b.meta.id === row.book_id);
@@ -17,13 +16,12 @@ export default function LibraryPage({ userId, onOpen, onSignOut }:
       }
       setPercents(map);
     });
-  }, [userId]);
+  }, []);
 
   return (
     <div className="mx-auto max-w-2xl p-5">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6">
         <h1 className="text-xl font-semibold">My Library</h1>
-        <button className="text-sm text-neutral-400" onClick={onSignOut}>Sign out</button>
       </header>
       {books.length === 0 ? (
         <p className="text-neutral-500">No books yet.</p>

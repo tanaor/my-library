@@ -40,11 +40,11 @@ function textOffsetWithin(root: HTMLElement, node: Node, offset: number): number
   return total;
 }
 
-export default function ReaderPage({ userId, bookId, onBack }:
-  { userId: string; bookId: string; onBack: () => void }) {
+export default function ReaderPage({ bookId, onBack }:
+  { bookId: string; onBack: () => void }) {
   const book = getBook(bookId);
-  const { offset, save } = useProgress(userId, bookId);
-  const { highlights, addHighlight, removeHighlight } = useHighlights(userId, bookId);
+  const { offset, save } = useProgress(bookId);
+  const { highlights, addHighlight, removeHighlight } = useHighlights(bookId);
 
   const [fontSize, setFontSize] = useState<number>(() => Number(localStorage.getItem(FONT_KEY)) || FONT_SIZES[1]);
   const [pages, setPages] = useState<PageRange[] | null>(null);

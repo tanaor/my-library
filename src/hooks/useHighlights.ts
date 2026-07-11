@@ -2,25 +2,26 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { Highlight } from "../lib/types";
 
-export function useHighlights(userId: string, bookId: string) {
+/** CRUD for a book's highlights. Single-user app (no per-user scoping). */
+export function useHighlights(bookId: string) {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
 
   const reload = useCallback(async () => {
     const { data } = await supabase.from("highlights")
-      .select("*").eq("user_id", userId).eq("book_id", bookId)
+      .select("*").eq("book_id", bookId)
       .order("start_off", { ascending: true });
     setHighlights((data as Highlight[]) ?? []);
-  }, [userId, bookId]);
+  }, [bookId]);
 
   useEffect(() => { void reload(); }, [reload]);
 
   const addHighlight = useCallback(async (startOff: number, endOff: number, quote: string, note: string | null) => {
     const { data } = await supabase.from("highlights")
-      .insert({ user_id: userId, book_id: bookId, start_off: startOff, end_off: endOff, quote, note, color: "yellow" })
+      .insert({ book_id: bookId, start_off: startOff, end_off: endOff, quote, note, color: "yellow" })
       .select("*").single();
     if (data) setHighlights((h) => [...h, data as Highlight].sort((a, b) => a.start_off - b.start_off));
     return data as Highlight | null;
-  }, [userId, bookId]);
+  }, [bookId]);
 
   const updateNote = useCallback(async (id: string, note: string) => {
     await supabase.from("highlights").update({ note }).eq("id", id);
