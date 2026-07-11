@@ -4,5 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: "/",
+  // Served from https://tanaor.github.io/my-library/ (project page subpath).
+  base: "/my-library/",
 });
