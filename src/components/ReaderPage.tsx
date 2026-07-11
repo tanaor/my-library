@@ -80,11 +80,19 @@ export default function ReaderPage({ userId, bookId, onBack }:
     setPages(computed);
   }, [book, bookId, fontSize, dims]);
 
-  // When pages and saved offset are both ready, jump to the saved page once per pagination build.
+  // The current reading offset (page start). Seeded from the saved DB offset, then
+  // kept in sync as the reader turns pages. Used to re-resolve position after every
+  // repagination (font-size change, resize) so position is never lost.
+  const currentOffset = useRef<number | null>(null);
   const restoredFor = useRef<PageRange[] | null>(null);
   useEffect(() => {
-    if (pages && offset != null && restoredFor.current !== pages) {
-      setPageIndex(resolveOffsetToPage(pages, offset));
+    if (!pages) return;
+    if (currentOffset.current == null) {
+      if (offset == null) return; // still loading the saved position
+      currentOffset.current = offset;
+    }
+    if (restoredFor.current !== pages) {
+      setPageIndex(resolveOffsetToPage(pages, currentOffset.current));
       restoredFor.current = pages;
     }
   }, [pages, offset]);
@@ -93,9 +101,20 @@ export default function ReaderPage({ userId, bookId, onBack }:
     if (!pages) return;
     const clamped = Math.max(0, Math.min(pages.length - 1, next));
     setPageIndex(clamped);
+    currentOffset.current = pages[clamped].start;
     save(pages[clamped].start);
     setSel(null);
   }, [pages, save]);
+
+  // Keyboard paging (desktop): arrow keys / space.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") goto(pageIndex + 1);
+      else if (e.key === "ArrowLeft" || e.key === "PageUp") goto(pageIndex - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goto, pageIndex]);
 
   // Read the current DOM selection and map it to absolute book offsets.
   const readSelection = useCallback(() => {
@@ -136,8 +155,10 @@ export default function ReaderPage({ userId, bookId, onBack }:
 
   const jumpTo = (h: Highlight) => {
     if (!pages) return;
-    setPageIndex(resolveOffsetToPage(pages, h.start_off));
-    save(h.start_off);
+    const idx = resolveOffsetToPage(pages, h.start_off);
+    setPageIndex(idx);
+    currentOffset.current = pages[idx].start;
+    save(pages[idx].start);
     setNotesOpen(false);
   };
 
