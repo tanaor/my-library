@@ -17,6 +17,10 @@ const LINE_HEIGHT = 1.6;
 const HEADING_SCALE = 1.3;
 const BLOCK_GAP = 18; // px between blocks — matches the marginTop below
 
+// Touch-primary device (phone/tablet): pages turn by swipe only, so a tap is free
+// for selecting text. Desktop (mouse): tap left/right to turn.
+const IS_TOUCH = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
+
 /** The visible [text slice, block] for each block that intersects the page. */
 function blocksOnPage(blocks: Block[], page: PageRange): { block: Block; text: string }[] {
   const out: { block: Block; text: string }[] = [];
@@ -128,8 +132,17 @@ export default function ReaderPage({ bookId, onBack }:
     const endOff = Number(endEl.dataset.start) + textOffsetWithin(endEl, range.endContainer, range.endOffset);
     if (endOff <= startOff) { setSel(null); return; }
     const rect = range.getBoundingClientRect();
-    setSel({ x: rect.left + rect.width / 2, y: rect.top, start: startOff, end: endOff, quote: s.toString() });
+    setSel({ x: rect.left + rect.width / 2, y: Math.max(rect.top, 56), start: startOff, end: endOff, quote: s.toString() });
   }, []);
+
+  // Surface the highlight toolbar whenever the text selection changes (robust on mobile,
+  // where a long-press selection may not coincide with a touchend on the reading area).
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const handler = () => { clearTimeout(t); t = setTimeout(readSelection, 120); };
+    document.addEventListener("selectionchange", handler);
+    return () => { document.removeEventListener("selectionchange", handler); clearTimeout(t); };
+  }, [readSelection]);
 
   // Turn a page based on where in the reading area the user tapped/clicked.
   // Left 40% → previous, right 40% → next, middle 20% → nothing (safe zone).
@@ -156,15 +169,15 @@ export default function ReaderPage({ bookId, onBack }:
         swiped.current = true;
         setTimeout(() => { swiped.current = false; }, 400);
         goto(pageIndex + (dx < 0 ? 1 : -1));
-        return;
       }
     }
-    readSelection();
+    // Selection is handled by the selectionchange listener above.
   };
 
-  // Click/tap: turn by position unless the user just swiped or is selecting text.
+  // Click/tap: desktop only — turn by position unless the user is selecting text.
+  // On touch devices this is disabled so taps are free for text selection (swipe turns pages).
   const onAreaClick = (e: React.MouseEvent) => {
-    if (swiped.current) return;
+    if (IS_TOUCH || swiped.current) return;
     const s = window.getSelection();
     if (s && !s.isCollapsed) return;
     turnByPosition(e.clientX);
@@ -228,7 +241,6 @@ export default function ReaderPage({ bookId, onBack }:
           ref={areaRef}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
-          onMouseUp={readSelection}
           onClick={onAreaClick}
           className="h-full w-full overflow-hidden select-text"
           style={{ fontSize: `${fontSize}px`, lineHeight: LINE_HEIGHT }}
