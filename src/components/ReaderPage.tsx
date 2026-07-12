@@ -218,12 +218,16 @@ export default function ReaderPage({ bookId, onBack }:
   }
 
   const percent = page ? progressPercent(page.start, book.length) : 0;
+  const totalPages = pages?.length ?? 0;
+  const currentPage = totalPages ? pageIndex + 1 : 0;
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between px-4 py-2 text-sm text-neutral-400">
         <button onClick={onBack} aria-label="Back" className="text-lg">←</button>
-        <span>{percent}%</span>
+        <span className="tabular-nums">
+          {totalPages ? `${currentPage} / ${totalPages} · ${percent}%` : "…"}
+        </span>
         <div className="flex items-center gap-3">
           {FONT_SIZES.map((s, i) => (
             <button
@@ -274,6 +278,21 @@ export default function ReaderPage({ bookId, onBack }:
           )}
         </div>
       </div>
+
+      {pages && totalPages > 1 && (
+        <div className="flex items-center gap-3 px-5 py-3 text-xs text-neutral-500">
+          <input
+            type="range"
+            min={0}
+            max={totalPages - 1}
+            value={pageIndex}
+            onChange={(e) => goto(Number(e.target.value))}
+            aria-label="Scrub through pages"
+            className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-neutral-700 accent-neutral-300"
+          />
+          <span className="tabular-nums">{currentPage} / {totalPages}</span>
+        </div>
+      )}
 
       {sel && <SelectionToolbar x={sel.x} y={sel.y} onHighlight={() => commitHighlight(false)} onNote={() => commitHighlight(true)} />}
       {notesOpen && <NotesPanel highlights={highlights} onJump={jumpTo} onDelete={removeHighlight} onClose={() => setNotesOpen(false)} />}
